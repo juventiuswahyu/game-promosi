@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Business Simulator</title>
+  <title>AI Business Simulator (Gemini Robust)</title>
   <style>
     body {
       background-color: #0f172a;
@@ -130,7 +130,7 @@
 
   <div class="game-container">
     <div class="api-config">
-      <input type="password" id="apiKeyInput" placeholder="Masukkan Groq API Key (gsk_...)" />
+      <input type="password" id="apiKeyInput" placeholder="Masukkan Gemini API Key (AIzaSy...)" />
       <button onclick="saveApiKey()">Simpan Key</button>
     </div>
 
@@ -152,7 +152,7 @@
   </div>
 
   <script>
-    let userApiKey = localStorage.getItem('GROQ_API_KEY') || "";
+    let userApiKey = localStorage.getItem('GEMINI_API_KEY') || "";
     if (userApiKey) {
       document.getElementById('apiKeyInput').value = userApiKey;
     }
@@ -163,9 +163,9 @@
         alert("Masukkan API Key terlebih dahulu!");
         return;
       }
-      localStorage.setItem('GROQ_API_KEY', key);
+      localStorage.setItem('GEMINI_API_KEY', key);
       userApiKey = key;
-      alert("API Key berhasil disimpan!");
+      alert("API Key Gemini berhasil disimpan!");
     }
 
     let state = { modal: 1000000, reputasi: 50 };
@@ -174,28 +174,14 @@
       B: "Beli alat desain & promosi online"
     };
 
-    const SYSTEM_PROMPT = `Kamu adalah game engine Visual Novel bisnis. 
-Pemain adalah Richard (anak baru lulus SMA). Kamu adalah Lucas (Mentornya).
-Respons WAJIB HANYA berupa JSON valid tanpa teks lain, tanpa tanda markdown backticks (\`\`\`json).
-Struktur JSON:
-{
-  "dialog": "cerita/tanggapan lucas (maks 30 kata)",
-  "modal_change": angka,
-  "reputasi_change": angka,
-  "option_a": "pilihan aksi A selanjutnya",
-  "option_b": "pilihan aksi B selanjutnya"
-}`;
-
-    // Daftar model alternatif jika salah satu tidak tersedia
-    const MODELS_TO_TRY = [
-      "llama-3.3-70b-versatile",
-      "llama-3.1-8b-instant",
-      "openai/gpt-oss-20b"
+    const GEMINI_MODELS = [
+      "gemini-2.5-flash",
+      "gemini-1.5-flash"
     ];
 
     async function makeChoice(choice) {
       if (!userApiKey) {
-        alert("Silakan masukkan Groq API Key kamu di kolom atas terlebih dahulu!");
+        alert("Masukkan Gemini API Key kamu (diawali AIzaSy...) di kolom atas!");
         return;
       }
 
@@ -206,71 +192,71 @@ Struktur JSON:
 
       const chosenText = currentOptions[choice];
       document.getElementById('story-text').innerText = "Lucas sedang berpikir...";
-      
-      const userPrompt = `Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih: "${chosenText}". Hasilkan kejadian berikutnya dalam format JSON!`;
 
-      let responseData = null;
-      let success = false;
+      const promptText = `Kamu adalah game engine Visual Novel bisnis.
+Pemain: Richard. Mentor: Lucas.
+Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}.
+Pemain memilih: "${chosenText}".
 
-      // Coba satu per satu model yang tersedia
-      for (const modelName of MODELS_TO_TRY) {
+WAJIB Balas HANYA teks JSON murni tanpa format markdown seperti \`\`\`json.
+Contoh format output wajib:
+{"dialog":"pilihan yang tepat!","modal_change":-200000,"reputasi_change":10,"option_a":"Lanjut promosi","option_b":"Cari klien"}
+`;
+
+      let rawText = null;
+
+      // Percobaan pemanggilan API dengan fallback antar model Gemini Flash
+      for (const model of GEMINI_MODELS) {
         try {
-          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${userApiKey}`;
+          const response = await fetch(endpoint, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${userApiKey}`
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: modelName,
-              messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: userPrompt }
-              ],
-              temperature: 0.7
+              contents: [{ parts: [{ text: promptText }] }]
             })
           });
 
           const data = await response.json();
-
-          if (!data.error && data.choices && data.choices.length > 0) {
-            responseData = data;
-            success = true;
-            break; // Berhasil, keluar dari loop
+          if (data.candidates && data.candidates[0].content.parts[0].text) {
+            rawText = data.candidates[0].content.parts[0].text;
+            break;
           }
-        } catch (err) {
-          console.warn(`Model ${modelName} gagal, mencoba model berikutnya...`);
+        } catch (e) {
+          console.warn(`Gagal pada model ${model}, mencoba model berikutnya...`);
         }
       }
 
-      if (success && responseData) {
-        try {
-          let rawContent = responseData.choices[0].message.content.trim();
-          rawContent = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
-          
-          const res = JSON.parse(rawContent);
-
-          state.modal += res.modal_change;
-          state.reputasi += res.reputasi_change;
-
-          document.getElementById('modal-val').innerText = "Rp " + state.modal.toLocaleString('id-ID');
-          document.getElementById('reputasi-val').innerText = state.reputasi;
-          document.getElementById('story-text').innerText = `"${res.dialog}"`;
-          document.getElementById('opt-a').innerText = "A. " + res.option_a;
-          document.getElementById('opt-b').innerText = "B. " + res.option_b;
-
-          currentOptions.A = res.option_a;
-          currentOptions.B = res.option_b;
-        } catch (parseErr) {
-          document.getElementById('story-text').innerText = "Gagal memproses respon AI. Coba klik lagi!";
-        }
-      } else {
-        alert("Gagal terhubung ke model AI. Pastikan API Key Groq kamu valid!");
-        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar!";
+      if (!rawText) {
+        document.getElementById('story-text').innerText = "Koneksi ke Gemini gagal. Periksa kembali API Key kamu!";
+        btnA.disabled = false;
+        btnB.disabled = false;
+        return;
       }
 
-      btnA.disabled = false;
-      btnB.disabled = false;
+      try {
+        // Membersihkan karakter non-JSON jika AI tidak sengaja menyertakan markdown
+        const cleanJSON = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const res = JSON.parse(cleanJSON);
+
+        state.modal += Number(res.modal_change) || 0;
+        state.reputasi += Number(res.reputasi_change) || 0;
+
+        document.getElementById('modal-val').innerText = "Rp " + state.modal.toLocaleString('id-ID');
+        document.getElementById('reputasi-val').innerText = state.reputasi;
+        document.getElementById('story-text').innerText = `"${res.dialog}"`;
+        document.getElementById('opt-a').innerText = "A. " + res.option_a;
+        document.getElementById('opt-b').innerText = "B. " + res.option_b;
+
+        currentOptions.A = res.option_a;
+        currentOptions.B = res.option_b;
+      } catch (err) {
+        document.getElementById('story-text').innerText = "Gagal membaca format jawaban AI. Silakan klik tombol sekali lagi!";
+        console.error(err, rawText);
+      } finally {
+        btnA.disabled = false;
+        btnB.disabled = false;
+      }
     }
   </script>
 </body>
