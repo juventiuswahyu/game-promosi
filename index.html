@@ -25,32 +25,6 @@
       padding: 24px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
-    .api-config {
-      background-color: #0f172a;
-      padding: 12px 16px;
-      border-radius: 10px;
-      margin-bottom: 16px;
-      display: flex;
-      gap: 10px;
-    }
-    .api-config input {
-      flex: 1;
-      background: #334155;
-      border: 1px solid #475569;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-    }
-    .api-config button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-    }
     .stats {
       display: flex;
       justify-content: space-between;
@@ -129,11 +103,6 @@
 <body>
 
   <div class="game-container">
-    <div class="api-config">
-      <input type="password" id="apiKeyInput" placeholder="Masukkan Groq Key (gsk_...)" />
-      <button onclick="saveApiKey()">Simpan Key</button>
-    </div>
-
     <div class="stats">
       <div class="stat-item">Modal: <span class="stat-val" id="modal-val">Rp 1.000.000</span></div>
       <div class="stat-item">Reputasi: <span class="stat-val" id="reputasi-val">50</span></div>
@@ -152,23 +121,8 @@
   </div>
 
   <script>
-    // Otomatis muat API Key dari browser saat halaman dibuka
-    window.onload = function() {
-      const savedKey = localStorage.getItem('GROQ_KEY_PERMANENT');
-      if (savedKey) {
-        document.getElementById('apiKeyInput').value = savedKey;
-      }
-    };
-
-    function saveApiKey() {
-      const key = document.getElementById('apiKeyInput').value.trim();
-      if (!key.startsWith('gsk_')) {
-        alert("API Key Groq harus diawali dengan 'gsk_'!");
-        return;
-      }
-      localStorage.setItem('GROQ_KEY_PERMANENT', key);
-      alert("API Key tersimpan permanen di browser ini!");
-    }
+    // API KEY DITANAM LANGSUNG DI SINI
+    const API_KEY = "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";
 
     let state = { modal: 1000000, reputasi: 50 };
     let currentOptions = {
@@ -193,14 +147,6 @@ Format JSON Wajib:
 }`;
 
     async function makeChoice(choice) {
-      // Selalu ambil kunci langsung dari storage agar tidak pernah terhapus
-      const apiKey = localStorage.getItem('GROQ_KEY_PERMANENT') || document.getElementById('apiKeyInput').value.trim();
-
-      if (!apiKey || !apiKey.startsWith('gsk_')) {
-        alert("API Key belum tersimpan. Masukkan kunci (gsk_...) lalu klik 'Simpan Key'!");
-        return;
-      }
-
       const btnA = document.getElementById('opt-a');
       const btnB = document.getElementById('opt-b');
       btnA.disabled = true;
@@ -216,10 +162,10 @@ Format JSON Wajib:
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'Authorization': `Bearer ${API_KEY}`
           },
           body: JSON.stringify({
-            model: "llama-3.1-8b-instant",
+            model: "llama-3.3-70b-versatile",
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: userPrompt }
@@ -253,7 +199,7 @@ Format JSON Wajib:
         currentOptions.B = res.option_b;
 
       } catch (err) {
-        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar!";
+        document.getElementById('story-text').innerText = "Koneksi terputus. Coba klik pilihan lagi!";
         console.error(err);
       } finally {
         btnA.disabled = false;
