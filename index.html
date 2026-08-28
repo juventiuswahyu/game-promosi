@@ -152,18 +152,25 @@
   </div>
 
   <script>
-    let userApiKey = localStorage.getItem('GROQ_API_KEY') || "";
+    // Pembersihan otomatis jika masih ada kunci berawalan Gemini/AQ
+    let userApiKey = localStorage.getItem('GROQ_API_KEY_V2') || "";
+    
+    if (userApiKey && !userApiKey.startsWith('gsk_')) {
+      localStorage.removeItem('GROQ_API_KEY_V2');
+      userApiKey = "";
+    }
+
     if (userApiKey) {
       document.getElementById('apiKeyInput').value = userApiKey;
     }
 
     function saveApiKey() {
       const key = document.getElementById('apiKeyInput').value.trim();
-      if (!key) {
-        alert("Masukkan API Key terlebih dahulu!");
+      if (!key.startsWith('gsk_')) {
+        alert("API Key Groq wajib diawali dengan 'gsk_'!");
         return;
       }
-      localStorage.setItem('GROQ_API_KEY', key);
+      localStorage.setItem('GROQ_API_KEY_V2', key);
       userApiKey = key;
       alert("API Key Groq berhasil disimpan!");
     }
@@ -191,8 +198,8 @@ Struktur JSON:
 }`;
 
     async function makeChoice(choice) {
-      if (!userApiKey) {
-        alert("Masukkan Groq API Key (gsk_...) di kolom atas!");
+      if (!userApiKey || !userApiKey.startsWith('gsk_')) {
+        alert("Silakan masukkan Groq API Key (gsk_...) di kolom atas terlebih dahulu!");
         return;
       }
 
@@ -248,7 +255,7 @@ Struktur JSON:
         currentOptions.B = res.option_b;
 
       } catch (err) {
-        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar dan coba lagi!";
+        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar!";
         console.error(err);
       } finally {
         btnA.disabled = false;
