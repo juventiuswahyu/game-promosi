@@ -130,7 +130,7 @@
 
   <div class="game-container">
     <div class="api-config">
-      <input type="password" id="apiKeyInput" placeholder="Masukkan Gemini API Key (AIzaSy...)" />
+      <input type="password" id="apiKeyInput" placeholder="Masukkan Gemini API Key (AQ...)" />
       <button onclick="saveApiKey()">Simpan Key</button>
     </div>
 
@@ -174,14 +174,9 @@
       B: "Beli alat desain & promosi online"
     };
 
-    const GEMINI_MODELS = [
-      "gemini-2.5-flash",
-      "gemini-1.5-flash"
-    ];
-
     async function makeChoice(choice) {
       if (!userApiKey) {
-        alert("Masukkan Gemini API Key kamu (diawali AIzaSy...) di kolom atas!");
+        alert("Masukkan Gemini API Key kamu di kolom atas!");
         return;
       }
 
@@ -193,51 +188,36 @@
       const chosenText = currentOptions[choice];
       document.getElementById('story-text').innerText = "Lucas sedang berpikir...";
 
-      const promptText = `Kamu adalah game engine Visual Novel bisnis.
+      const promptText = `Kamu adalah game engine simulator bisnis.
 Pemain: Richard. Mentor: Lucas.
-Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}.
+Modal: Rp ${state.modal}, Reputasi: ${state.reputasi}.
 Pemain memilih: "${chosenText}".
 
-PERATURAN BAHASA DAN FORMAT:
-1. WAJIB MENGGUNAKAN BAHASA INDONESIA SANTAI UNTUK SEMUA DIALOG DAN PILIHAN!
-2. DILARANG MENGGUNAKAN BAHASA INGGRIS!
-3. WAJIB Balas HANYA teks JSON murni tanpa format markdown seperti \`\`\`json.
+PERATURAN:
+1. Wajib jawab dalam BAHASA INDONESIA santai.
+2. Jawab HANYA string JSON valid tanpa format markdown \`\`\`json.
+3. Format JSON:
+{"dialog":"respon lucas dalam bahasa indonesia","modal_change":-100000,"reputasi_change":5,"option_a":"Opsi A dalam bahasa indonesia","option_b":"Opsi B dalam bahasa indonesia"}`;
 
-Contoh format output wajib:
-{"dialog":"Ide bagus! Kampanye ini makan biaya 200rb tapi reputasi naik.","modal_change":-200000,"reputasi_change":5,"option_a":"Alokasikan sisa modal untuk cari klien","option_b":"Fokus kembangkan produk dulu"}
-`;
-
-      let rawText = null;
-
-      for (const model of GEMINI_MODELS) {
-        try {
-          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${userApiKey}`;
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }]
-            })
-          });
-
-          const data = await response.json();
-          if (data.candidates && data.candidates[0].content.parts[0].text) {
-            rawText = data.candidates[0].content.parts[0].text;
-            break;
-          }
-        } catch (e) {
-          console.warn(`Gagal pada model ${model}, mencoba model berikutnya...`);
-        }
-      }
-
-      if (!rawText) {
-        document.getElementById('story-text').innerText = "Koneksi ke Gemini gagal. Periksa kembali API Key kamu!";
-        btnA.disabled = false;
-        btnB.disabled = false;
-        return;
-      }
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${userApiKey}`;
 
       try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }]
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          alert("Error Gemini: " + data.error.message);
+          return;
+        }
+
+        let rawText = data.candidates[0].content.parts[0].text;
         const cleanJSON = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
         const res = JSON.parse(cleanJSON);
 
@@ -252,9 +232,10 @@ Contoh format output wajib:
 
         currentOptions.A = res.option_a;
         currentOptions.B = res.option_b;
+
       } catch (err) {
-        document.getElementById('story-text').innerText = "Gagal membaca format jawaban AI. Silakan klik tombol sekali lagi!";
-        console.error(err, rawText);
+        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar dan klik tombol lagi!";
+        console.error(err);
       } finally {
         btnA.disabled = false;
         btnB.disabled = false;
