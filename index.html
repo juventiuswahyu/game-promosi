@@ -121,7 +121,6 @@
   </div>
 
   <script>
-    // API Key milikmu sudah terpasang langsung di sini:
     const GROQ_API_KEY = "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";
 
     let state = { modal: 1000000, reputasi: 50 };
@@ -141,7 +140,7 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
   "option_b": "pilihan aksi B selanjutnya"
 }`;
 
-    // Otomatis memilih model aktif di Groq agar anti error decommission
+    // Penyaringan model khusus percakapan (chat models)
     async function getActiveModel() {
       try {
         const res = await fetch('https://api.groq.com/openai/v1/models', {
@@ -149,13 +148,14 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
         });
         const data = await res.json();
         if (data.data && data.data.length > 0) {
-          const selected = data.data.find(m => m.id.includes('llama') || m.id.includes('gemma'));
-          return selected ? selected.id : data.data[0].id;
+          // Cari spesifik model chat yang aman
+          const chatModel = data.data.find(m => m.id.includes('llama-3.3-70b') || m.id.includes('llama-3.1-8b'));
+          if (chatModel) return chatModel.id;
         }
       } catch (e) {
-        console.error("Gagal mengambil model otomatis, menggunakan fallback.", e);
+        console.error("Gagal mengambil model otomatis", e);
       }
-      return "gemma2-9b-it";
+      return "llama-3.3-70b-versatile";
     }
 
     async function makeChoice(choice) {
