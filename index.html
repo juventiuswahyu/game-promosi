@@ -130,7 +130,7 @@
 
   <div class="game-container">
     <div class="api-config">
-      <input type="password" id="apiKeyInput" placeholder="Masukkan Gemini API Key (AQ...)" />
+      <input type="password" id="apiKeyInput" placeholder="Masukkan Groq Key (gsk_...)" />
       <button onclick="saveApiKey()">Simpan Key</button>
     </div>
 
@@ -152,7 +152,7 @@
   </div>
 
   <script>
-    let userApiKey = localStorage.getItem('GEMINI_API_KEY') || "";
+    let userApiKey = localStorage.getItem('GROQ_API_KEY') || "";
     if (userApiKey) {
       document.getElementById('apiKeyInput').value = userApiKey;
     }
@@ -163,9 +163,9 @@
         alert("Masukkan API Key terlebih dahulu!");
         return;
       }
-      localStorage.setItem('GEMINI_API_KEY', key);
+      localStorage.setItem('GROQ_API_KEY', key);
       userApiKey = key;
-      alert("API Key Gemini berhasil disimpan!");
+      alert("API Key Groq berhasil disimpan!");
     }
 
     let state = { modal: 1000000, reputasi: 50 };
@@ -174,9 +174,25 @@
       B: "Beli alat desain & promosi online"
     };
 
+    const SYSTEM_PROMPT = `Kamu adalah game engine Visual Novel bisnis.
+Pemain: Richard. Mentor: Lucas.
+Tugas: Hasilkan reaksi cerita dan 2 opsi pilihan aksi berikutnya.
+
+PERATURAN:
+1. WAJIB Menggunakan Bahasa Indonesia santai!
+2. Output WAJIB JSON murni tanpa markdown/backticks.
+Struktur JSON:
+{
+  "dialog": "dialog Lucas dalam bahasa indonesia",
+  "modal_change": -200000,
+  "reputasi_change": 10,
+  "option_a": "pilihan aksi A selanjutnya dalam bahasa indonesia",
+  "option_b": "pilihan aksi B selanjutnya dalam bahasa indonesia"
+}`;
+
     async function makeChoice(choice) {
       if (!userApiKey) {
-        alert("Masukkan Gemini API Key kamu di kolom atas!");
+        alert("Masukkan Groq API Key (gsk_...) di kolom atas!");
         return;
       }
 
@@ -188,38 +204,36 @@
       const chosenText = currentOptions[choice];
       document.getElementById('story-text').innerText = "Lucas sedang berpikir...";
 
-      const promptText = `Kamu adalah game engine simulator bisnis.
-Pemain: Richard. Mentor: Lucas.
-Modal: Rp ${state.modal}, Reputasi: ${state.reputasi}.
-Pemain memilih: "${chosenText}".
-
-PERATURAN:
-1. Wajib jawab dalam BAHASA INDONESIA santai.
-2. Jawab HANYA string JSON valid tanpa format markdown \`\`\`json.
-3. Format JSON:
-{"dialog":"respon lucas dalam bahasa indonesia","modal_change":-100000,"reputasi_change":5,"option_a":"Opsi A dalam bahasa indonesia","option_b":"Opsi B dalam bahasa indonesia"}`;
-
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${userApiKey}`;
+      const userPrompt = `Modal: ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih: "${chosenText}".`;
 
       try {
-        const response = await fetch(endpoint, {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userApiKey}`
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: promptText }] }]
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: userPrompt }
+            ],
+            temperature: 0.7
           })
         });
 
         const data = await response.json();
 
         if (data.error) {
-          alert("Error Gemini: " + data.error.message);
+          alert("Error Groq: " + data.error.message);
           return;
         }
 
-        let rawText = data.candidates[0].content.parts[0].text;
-        const cleanJSON = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const res = JSON.parse(cleanJSON);
+        let rawContent = data.choices[0].message.content.trim();
+        rawContent = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        const res = JSON.parse(rawContent);
 
         state.modal += Number(res.modal_change) || 0;
         state.reputasi += Number(res.reputasi_change) || 0;
@@ -234,7 +248,7 @@ PERATURAN:
         currentOptions.B = res.option_b;
 
       } catch (err) {
-        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar dan klik tombol lagi!";
+        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar dan coba lagi!";
         console.error(err);
       } finally {
         btnA.disabled = false;
