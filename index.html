@@ -25,6 +25,32 @@
       padding: 24px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
+    .api-config {
+      background-color: #0f172a;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 10px;
+    }
+    .api-config input {
+      flex: 1;
+      background: #334155;
+      border: 1px solid #475569;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .api-config button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
     .stats {
       display: flex;
       justify-content: space-between;
@@ -94,11 +120,20 @@
     .btn:hover {
       background-color: #4338ca;
     }
+    .btn:disabled {
+      background-color: #64748b;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
 
   <div class="game-container">
+    <div class="api-config">
+      <input type="password" id="apiKeyInput" placeholder="Masukkan Groq Key (gsk_...)" />
+      <button onclick="saveApiKey()">Simpan Key</button>
+    </div>
+
     <div class="stats">
       <div class="stat-item">Modal: <span class="stat-val" id="modal-val">Rp 1.000.000</span></div>
       <div class="stat-item">Reputasi: <span class="stat-val" id="reputasi-val">50</span></div>
@@ -117,70 +152,110 @@
   </div>
 
   <script>
-    let state = { modal: 1000000, reputasi: 50, step: 1 };
+    let userApiKey = localStorage.getItem('GROQ_API_KEY_PROD') || "";
 
-    const scenarioTree = {
-      1: {
-        A: {
-          dialog: "Gaya sih dapet, tapi modalmu tinggal Rp 200rb! Klien belum ada yang masuk. Mau ngapain sekarang?",
-          modal_change: -800000, reputasi_change: 5,
-          next_a: "Cari proyek freelance ketengan di internet",
-          next_b: "Pinjam modal tambahan ke teman",
-          step: 2
-        },
-        B: {
-          dialog: "Pilihan bijak! Alat tempur lengkap dan iklan mulai berjalan. Ada 2 calon klien menghubungi!",
-          modal_change: -300000, reputasi_change: 15,
-          next_a: "Ambil proyek desain UMKM lokal (Rp 500rb)",
-          next_b: "Tawar proyek branding perusahaan startup (Rp 2 Juta)",
-          step: 3
-        }
-      },
-      2: {
-        A: {
-          dialog: "Dapet orderan kecil Rp 300rb! Lumayan buat nambah nafas modal.",
-          modal_change: 300000, reputasi_change: 10,
-          next_a: "Fokus kumpulin portfolio", next_b: "Coba rekrut magang", step: 4
-        },
-        B: {
-          dialog: "Temanmu mau minjemin Rp 1 Juta tapi minta bagi hasil 20%.",
-          modal_change: 1000000, reputasi_change: -5,
-          next_a: "Terima pinjaman", next_b: "Tolak dan kerja sendiri", step: 4
-        }
-      },
-      3: {
-        A: {
-          dialog: "Klien UMKM puas banget! Kamu dapet testimoni bagus dan bayaran lancar.",
-          modal_change: 500000, reputasi_change: 20,
-          next_a: "Tingkatkan harga jasa", next_b: "Bikin paket langganan", step: 4
-        },
-        B: {
-          dialog: "Startup-nya suka sama pitch kamu! Proyek besar resmi dimulai.",
-          modal_change: 2000000, reputasi_change: 30,
-          next_a: "Sewa tim tambahan", next_b: "Kerjakan sendiri sampai beres", step: 4
-        }
+    if (userApiKey) {
+      document.getElementById('apiKeyInput').value = userApiKey;
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (!key.startsWith('gsk_')) {
+        alert("API Key Groq wajib diawali dengan 'gsk_'!");
+        return;
       }
+      localStorage.setItem('GROQ_API_KEY_PROD', key);
+      userApiKey = key;
+      alert("API Key Groq berhasil disimpan!");
+    }
+
+    let state = { modal: 1000000, reputasi: 50 };
+    let currentOptions = {
+      A: "Sewa co-working space sebulan biar keren",
+      B: "Beli alat desain & promosi online"
     };
 
-    function makeChoice(choice) {
-      const current = scenarioTree[state.step] ? scenarioTree[state.step][choice] : null;
+    const SYSTEM_PROMPT = `Kamu adalah game engine Visual Novel bisnis.
+Pemain bernama Richard, Mentor bernama Lucas.
 
-      if (!current) {
-        document.getElementById('story-text').innerText = `"Hebat Richard! Bisnismu terus berkembang stabil. Simulasi selesai untuk tahap ini!"`;
-        document.getElementById('opt-a').style.display = 'none';
-        document.getElementById('opt-b').style.display = 'none';
+PERATURAN MUTLAK:
+1. SEMUA DIALOG DAN OPSI HARUS SERATUS PERSEN MENGGUNAKAN BAHASA INDONESIA SANTAI/GAUL!
+2. DILARANG MENGGUNAKAN BAHASA INGGRIS KECUALI ISTILAH BISNIS UMUM.
+3. Output WAJIB JSON murni tanpa penanda markdown \`\`\`json.
+
+Format JSON Wajib:
+{
+  "dialog": "dialog Lucas merespon pilihan pemain dalam Bahasa Indonesia",
+  "modal_change": -200000,
+  "reputasi_change": 10,
+  "option_a": "pilihan aksi A selanjutnya (Bahasa Indonesia)",
+  "option_b": "pilihan aksi B selanjutnya (Bahasa Indonesia)"
+}`;
+
+    async function makeChoice(choice) {
+      if (!userApiKey || !userApiKey.startsWith('gsk_')) {
+        alert("Masukkan Groq API Key (gsk_...) di kolom atas!");
         return;
       }
 
-      state.modal += current.modal_change;
-      state.reputasi += current.reputasi_change;
-      state.step = current.step;
+      const btnA = document.getElementById('opt-a');
+      const btnB = document.getElementById('opt-b');
+      btnA.disabled = true;
+      btnB.disabled = true;
 
-      document.getElementById('modal-val').innerText = "Rp " + state.modal.toLocaleString('id-ID');
-      document.getElementById('reputasi-val').innerText = state.reputasi;
-      document.getElementById('story-text').innerText = `"${current.dialog}"`;
-      document.getElementById('opt-a').innerText = "A. " + current.next_a;
-      document.getElementById('opt-b').innerText = "B. " + current.next_b;
+      const chosenText = currentOptions[choice];
+      document.getElementById('story-text').innerText = "Lucas sedang berpikir...";
+
+      const userPrompt = `Modal: Rp ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih aksi: "${chosenText}". Hasilkan kelanjutan cerita dan opsi berikutnya dalam Bahasa Indonesia!`;
+
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userApiKey}`
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: userPrompt }
+            ],
+            temperature: 0.6
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          alert("Error Groq: " + data.error.message);
+          return;
+        }
+
+        let rawContent = data.choices[0].message.content.trim();
+        rawContent = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        const res = JSON.parse(rawContent);
+
+        state.modal += Number(res.modal_change) || 0;
+        state.reputasi += Number(res.reputasi_change) || 0;
+
+        document.getElementById('modal-val').innerText = "Rp " + state.modal.toLocaleString('id-ID');
+        document.getElementById('reputasi-val').innerText = state.reputasi;
+        document.getElementById('story-text').innerText = `"${res.dialog}"`;
+        document.getElementById('opt-a').innerText = "A. " + res.option_a;
+        document.getElementById('opt-b').innerText = "B. " + res.option_b;
+
+        currentOptions.A = res.option_a;
+        currentOptions.B = res.option_b;
+
+      } catch (err) {
+        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar dan coba lagi!";
+        console.error(err);
+      } finally {
+        btnA.disabled = false;
+        btnB.disabled = false;
+      }
     }
   </script>
 </body>
