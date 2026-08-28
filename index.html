@@ -152,7 +152,6 @@
   </div>
 
   <script>
-    // Pembersihan otomatis jika masih ada kunci berawalan Gemini/AQ
     let userApiKey = localStorage.getItem('GROQ_API_KEY_V2') || "";
     
     if (userApiKey && !userApiKey.startsWith('gsk_')) {
@@ -221,7 +220,7 @@ Struktur JSON:
             'Authorization': `Bearer ${userApiKey}`
           },
           body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
+            model: "llama3-8b-8192",
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: userPrompt }
