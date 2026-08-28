@@ -131,16 +131,16 @@
 
     const SYSTEM_PROMPT = `Kamu adalah game engine Visual Novel bisnis. 
 Pemain adalah Richard (anak baru lulus SMA). Kamu adalah Lucas (Mentornya).
-Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
+Respons WAJIB HANYA berupa JSON valid tanpa teks lain, tanpa tanda markdown backticks (\`\`\`json).
+Struktur JSON:
 {
   "dialog": "cerita/tanggapan lucas (maks 30 kata)",
-  "modal_change": angka (misal -300000 atau 500000),
-  "reputasi_change": angka (misal 10 atau -5),
+  "modal_change": angka,
+  "reputasi_change": angka,
   "option_a": "pilihan aksi A selanjutnya",
   "option_b": "pilihan aksi B selanjutnya"
 }`;
 
-    // Penyaringan model khusus percakapan (chat models)
     async function getActiveModel() {
       try {
         const res = await fetch('https://api.groq.com/openai/v1/models', {
@@ -148,8 +148,7 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
         });
         const data = await res.json();
         if (data.data && data.data.length > 0) {
-          // Cari spesifik model chat yang aman
-          const chatModel = data.data.find(m => m.id.includes('llama-3.3-70b') || m.id.includes('llama-3.1-8b'));
+          const chatModel = data.data.find(m => m.id.includes('llama') || m.id.includes('mixtral'));
           if (chatModel) return chatModel.id;
         }
       } catch (e) {
@@ -167,7 +166,7 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
       const chosenText = currentOptions[choice];
       document.getElementById('story-text').innerText = "Lucas sedang berpikir...";
       
-      const userPrompt = `Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih: "${chosenText}". Hasilkan kejadian berikutnya!`;
+      const userPrompt = `Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih: "${chosenText}". Hasilkan kejadian berikutnya dalam format JSON!`;
 
       try {
         const currentModel = await getActiveModel();
@@ -184,7 +183,6 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: userPrompt }
             ],
-            response_format: { type: "json_object" },
             temperature: 0.7
           })
         });
@@ -196,7 +194,11 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
           return;
         }
 
-        const res = JSON.parse(data.choices[0].message.content);
+        let rawContent = data.choices[0].message.content.trim();
+        // Bersihkan markdown backticks jika AI tidak sengaja menambahkannya
+        rawContent = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        const res = JSON.parse(rawContent);
 
         state.modal += res.modal_change;
         state.reputasi += res.reputasi_change;
@@ -211,7 +213,7 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
         currentOptions.B = res.option_b;
 
       } catch (err) {
-        document.getElementById('story-text').innerText = "Koneksi terputus. Silakan klik tombol pilihan lagi!";
+        document.getElementById('story-text').innerText = "Koneksi terputus atau respon AI tidak sesuai. Coba klik lagi!";
         console.error(err);
       } finally {
         btnA.disabled = false;
