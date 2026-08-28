@@ -121,14 +121,8 @@
   </div>
 
   <script>
-    let GROQ_API_KEY = localStorage.getItem('groq_key');
-    
-    if (!GROQ_API_KEY) {
-      GROQ_API_KEY = prompt("Masukkan API Key Groq kamu (gsk_...):");
-      if (GROQ_API_KEY) {
-        localStorage.setItem('groq_key', GROQ_API_KEY.trim());
-      }
-    }
+    // 1. GANTI TULISAN DI BAWAH INI DENGAN API KEY GROQ ASLI KAMU (gsk_...)
+    const GROQ_API_KEY = "PASTE_API_KEY_GROQ_KAMU_DISINI";
 
     let state = { modal: 1000000, reputasi: 50 };
     let currentOptions = {
@@ -147,31 +141,25 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
   "option_b": "pilihan aksi B selanjutnya"
 }`;
 
-    // Fungsi otomatis untuk mengambil model aktif dari Groq
-    async function getAvailableModel() {
+    // Fungsi otomatis mencari nama model yang sedang aktif di akun Groq kamu
+    async function getActiveModel() {
       try {
         const res = await fetch('https://api.groq.com/openai/v1/models', {
           headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` }
         });
         const data = await res.json();
         if (data.data && data.data.length > 0) {
-          // Cari model llama aktif
-          const llamaModel = data.data.find(m => m.id.includes('llama'));
-          return llamaModel ? llamaModel.id : data.data[0].id;
+          // Cari model berjenis llama atau gemma yang aktif
+          const selected = data.data.find(m => m.id.includes('llama') || m.id.includes('gemma'));
+          return selected ? selected.id : data.data[0].id;
         }
       } catch (e) {
-        console.error("Gagal mengambil daftar model, menggunakan fallback.", e);
+        console.error("Gagal mengambil model otomatis, menggunakan fallback.", e);
       }
-      return "llama-3.3-70b-versatile";
+      return "gemma2-9b-it";
     }
 
     async function makeChoice(choice) {
-      if (!GROQ_API_KEY) {
-        GROQ_API_KEY = prompt("API Key Groq wajib diisi! Masukkan API Key kamu:");
-        if (GROQ_API_KEY) localStorage.setItem('groq_key', GROQ_API_KEY.trim());
-        else return;
-      }
-
       const btnA = document.getElementById('opt-a');
       const btnB = document.getElementById('opt-b');
       btnA.disabled = true;
@@ -183,7 +171,8 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
       const userPrompt = `Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih: "${chosenText}". Hasilkan kejadian berikutnya!`;
 
       try {
-        const activeModel = await getAvailableModel();
+        // Ambil nama model aktif secara otomatis
+        const currentModel = await getActiveModel();
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
@@ -192,7 +181,7 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
             'Authorization': `Bearer ${GROQ_API_KEY}`
           },
           body: JSON.stringify({
-            model: activeModel,
+            model: currentModel,
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: userPrompt }
@@ -206,10 +195,6 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
 
         if (data.error) {
           alert("Error Groq: " + data.error.message);
-          localStorage.removeItem('groq_key');
-          GROQ_API_KEY = null;
-          btnA.disabled = false;
-          btnB.disabled = false;
           return;
         }
 
@@ -228,7 +213,7 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
         currentOptions.B = res.option_b;
 
       } catch (err) {
-        document.getElementById('story-text').innerText = "Koneksi terputus. Coba klik lagi!";
+        document.getElementById('story-text').innerText = "Koneksi terputus atau API Key salah. Coba klik lagi!";
         console.error(err);
       } finally {
         btnA.disabled = false;
