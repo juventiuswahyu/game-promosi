@@ -152,21 +152,22 @@
   </div>
 
   <script>
-    let userApiKey = localStorage.getItem('GROQ_API_KEY_PROD') || "";
-
-    if (userApiKey) {
-      document.getElementById('apiKeyInput').value = userApiKey;
-    }
+    // Otomatis muat API Key dari browser saat halaman dibuka
+    window.onload = function() {
+      const savedKey = localStorage.getItem('GROQ_KEY_PERMANENT');
+      if (savedKey) {
+        document.getElementById('apiKeyInput').value = savedKey;
+      }
+    };
 
     function saveApiKey() {
       const key = document.getElementById('apiKeyInput').value.trim();
       if (!key.startsWith('gsk_')) {
-        alert("API Key Groq wajib diawali dengan 'gsk_'!");
+        alert("API Key Groq harus diawali dengan 'gsk_'!");
         return;
       }
-      localStorage.setItem('GROQ_API_KEY_PROD', key);
-      userApiKey = key;
-      alert("API Key Groq berhasil disimpan!");
+      localStorage.setItem('GROQ_KEY_PERMANENT', key);
+      alert("API Key tersimpan permanen di browser ini!");
     }
 
     let state = { modal: 1000000, reputasi: 50 };
@@ -179,22 +180,24 @@
 Pemain bernama Richard, Mentor bernama Lucas.
 
 PERATURAN MUTLAK:
-1. SEMUA DIALOG DAN OPSI HARUS SERATUS PERSEN MENGGUNAKAN BAHASA INDONESIA SANTAI/GAUL!
-2. DILARANG MENGGUNAKAN BAHASA INGGRIS KECUALI ISTILAH BISNIS UMUM.
-3. Output WAJIB JSON murni tanpa penanda markdown \`\`\`json.
+1. SEMUA DIALOG DAN OPSI HARUS SERATUS PERSEN MENGGUNAKAN BAHASA INDONESIA SANTAI!
+2. Output WAJIB JSON murni tanpa penanda markdown.
 
 Format JSON Wajib:
 {
-  "dialog": "dialog Lucas merespon pilihan pemain dalam Bahasa Indonesia",
+  "dialog": "dialog Lucas merespon pilihan pemain",
   "modal_change": -200000,
   "reputasi_change": 10,
-  "option_a": "pilihan aksi A selanjutnya (Bahasa Indonesia)",
-  "option_b": "pilihan aksi B selanjutnya (Bahasa Indonesia)"
+  "option_a": "pilihan aksi A selanjutnya",
+  "option_b": "pilihan aksi B selanjutnya"
 }`;
 
     async function makeChoice(choice) {
-      if (!userApiKey || !userApiKey.startsWith('gsk_')) {
-        alert("Masukkan Groq API Key (gsk_...) di kolom atas!");
+      // Selalu ambil kunci langsung dari storage agar tidak pernah terhapus
+      const apiKey = localStorage.getItem('GROQ_KEY_PERMANENT') || document.getElementById('apiKeyInput').value.trim();
+
+      if (!apiKey || !apiKey.startsWith('gsk_')) {
+        alert("API Key belum tersimpan. Masukkan kunci (gsk_...) lalu klik 'Simpan Key'!");
         return;
       }
 
@@ -206,14 +209,14 @@ Format JSON Wajib:
       const chosenText = currentOptions[choice];
       document.getElementById('story-text').innerText = "Lucas sedang berpikir...";
 
-      const userPrompt = `Modal: Rp ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih aksi: "${chosenText}". Hasilkan kelanjutan cerita dan opsi berikutnya dalam Bahasa Indonesia!`;
+      const userPrompt = `Modal: Rp ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih: "${chosenText}".`;
 
       try {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userApiKey}`
+            'Authorization': `Bearer ${apiKey}`
           },
           body: JSON.stringify({
             model: "llama-3.1-8b-instant",
@@ -250,7 +253,7 @@ Format JSON Wajib:
         currentOptions.B = res.option_b;
 
       } catch (err) {
-        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar dan coba lagi!";
+        document.getElementById('story-text').innerText = "Koneksi terputus. Pastikan API Key benar!";
         console.error(err);
       } finally {
         btnA.disabled = false;
