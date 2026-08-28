@@ -1,13 +1,9 @@
 <script>
-    // Ambil API Key dari penyimpanan lokal browser atau minta input dari pengguna
-    let GROQ_API_KEY = localStorage.getItem('groq_key');
+    // Tempelkan hasil encode Base64 API Key Groq kamu di sini
+    const ENCODED_KEY = "Z3NrX0hBcnVWazJ4MWN2TW9ZR0c1bGlHV0dkeWIzRllVY1hQZ2VxNmtrbG9rUGI3c0t1enFSN2I="; 
     
-    if (!GROQ_API_KEY) {
-      GROQ_API_KEY = prompt("Masukkan API Key Groq kamu (gsk_...):");
-      if (GROQ_API_KEY) {
-        localStorage.setItem('groq_key', GROQ_API_KEY);
-      }
-    }
+    // Decrypt key secara otomatis saat game berjalan di browser
+    const GROQ_API_KEY = atob(ENCODED_KEY);
 
     let state = { modal: 1000000, reputasi: 50 };
     let currentOptions = {
@@ -27,16 +23,10 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
 }`;
 
     async function makeChoice(choice) {
-      if (!GROQ_API_KEY) {
-        GROQ_API_KEY = prompt("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");
-        if (GROQ_API_KEY) localStorage.setItem('groq_key', GROQ_API_KEY);
-        else return;
-      }
-
       const chosenText = currentOptions[choice];
       document.getElementById('story-text').innerText = "Lucas sedang berpikir...";
       
-      const userPrompt = `Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih: "${chosenText}". Hasilkan kejadian berikutnya!`;
+      const userPrompt = `Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}. Pemain memilih: "${chosenText}". Hasikan kejadian berikutnya!`;
 
       try {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -57,11 +47,9 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
         });
 
         const data = await response.json();
-        
+
         if (data.error) {
-          alert("Error dari Groq: " + data.error.message);
-          localStorage.removeItem('groq_key'); // Hapus key jika invalid
-          GROQ_API_KEY = null;
+          alert("Error Groq: " + data.error.message);
           return;
         }
 
@@ -82,9 +70,8 @@ Respons WAJIB dalam format JSON murni tanpa markdown/backticks dengan skema ini:
         currentOptions.B = res.option_b;
 
       } catch (err) {
-        document.getElementById('story-text').innerText = "Gagal terhubung ke Groq. Pastikan API Key benar!";
+        document.getElementById('story-text').innerText = "Koneksi terputus. Coba klik lagi!";
         console.error(err);
       }
     }
   </script>
-</html>
