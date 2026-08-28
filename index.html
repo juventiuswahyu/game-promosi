@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Business Simulator (Gemini Robust)</title>
+  <title>AI Business Simulator</title>
   <style>
     body {
       background-color: #0f172a;
@@ -198,14 +198,17 @@ Pemain: Richard. Mentor: Lucas.
 Modal saat ini: ${state.modal}, Reputasi: ${state.reputasi}.
 Pemain memilih: "${chosenText}".
 
-WAJIB Balas HANYA teks JSON murni tanpa format markdown seperti \`\`\`json.
+PERATURAN BAHASA DAN FORMAT:
+1. WAJIB MENGGUNAKAN BAHASA INDONESIA SANTAI UNTUK SEMUA DIALOG DAN PILIHAN!
+2. DILARANG MENGGUNAKAN BAHASA INGGRIS!
+3. WAJIB Balas HANYA teks JSON murni tanpa format markdown seperti \`\`\`json.
+
 Contoh format output wajib:
-{"dialog":"pilihan yang tepat!","modal_change":-200000,"reputasi_change":10,"option_a":"Lanjut promosi","option_b":"Cari klien"}
+{"dialog":"Ide bagus! Kampanye ini makan biaya 200rb tapi reputasi naik.","modal_change":-200000,"reputasi_change":5,"option_a":"Alokasikan sisa modal untuk cari klien","option_b":"Fokus kembangkan produk dulu"}
 `;
 
       let rawText = null;
 
-      // Percobaan pemanggilan API dengan fallback antar model Gemini Flash
       for (const model of GEMINI_MODELS) {
         try {
           const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${userApiKey}`;
@@ -235,7 +238,6 @@ Contoh format output wajib:
       }
 
       try {
-        // Membersihkan karakter non-JSON jika AI tidak sengaja menyertakan markdown
         const cleanJSON = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
         const res = JSON.parse(cleanJSON);
 
